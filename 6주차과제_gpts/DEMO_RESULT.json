@@ -1,0 +1,150 @@
+{
+  "example_type": "offline deterministic Python demo — NOT OpenAI API output",
+  "input": "계란 2개, 두부 반 모, 양파 1개, 시금치 100g, 식용유 10g",
+  "inventory_g": {
+    "계란": 100.0,
+    "두부": 150.0,
+    "양파": 100.0,
+    "시금치": 100.0,
+    "식용유": 10.0
+  },
+  "weight_notes": [
+    "계란 2개 → 100g으로 임시 환산했어요. 실제 중량을 확인해 주세요.",
+    "두부 반 모 → 150g으로 임시 환산했어요.",
+    "양파 1개 → 100g으로 임시 환산했어요. 실제 중량을 확인해 주세요."
+  ],
+  "goal": "고단백",
+  "recommendations": [
+    {
+      "id": "tofu_egg",
+      "name": "두부 달걀 스크램블",
+      "minutes": 15,
+      "difficulty": "쉬움",
+      "ingredients": {
+        "두부": 150,
+        "계란": 100,
+        "양파": 50,
+        "시금치": 60,
+        "식용유": 5
+      },
+      "steps": [
+        "두부의 물기를 빼고 한 입 크기로 으깬다.",
+        "양파와 시금치를 작게 썬다.",
+        "팬에 식용유를 두르고 양파를 볶는다.",
+        "두부·시금치를 넣고 익힌 뒤 달걀을 넣어 완전히 익힌다."
+      ],
+      "score": 85.6,
+      "breakdown": {
+        "재료 활용": 30.0,
+        "영양 목표": 26.7,
+        "우선 소진": 10.0,
+        "조리 시간": 10.0,
+        "맛 조합": 8.9
+      },
+      "coverage": 100.0,
+      "missing": {},
+      "nutrients": {
+        "kcal": 348.5,
+        "carbs_g": 10.5,
+        "protein_g": 26.9,
+        "fat_g": 22.3,
+        "fiber_g": 2.9,
+        "sodium_mg": 198.9
+      },
+      "missing_nutrition": [],
+      "allergens": [
+        "난류",
+        "대두"
+      ]
+    },
+    {
+      "id": "spinach_soup",
+      "name": "시금치 달걀국",
+      "minutes": 15,
+      "difficulty": "쉬움",
+      "ingredients": {
+        "시금치": 90,
+        "계란": 100,
+        "양파": 40,
+        "간장": 5
+      },
+      "steps": [
+        "냄비에 물을 넣고 끓인다.",
+        "양파와 시금치를 넣어 익힌다.",
+        "계란을 풀어 넣고 완전히 익힌다.",
+        "간장으로 간을 조절한다."
+      ],
+      "score": 73.8,
+      "breakdown": {
+        "재료 활용": 29.4,
+        "영양 목표": 15.6,
+        "우선 소진": 10.0,
+        "조리 시간": 10.0,
+        "맛 조합": 8.8
+      },
+      "coverage": 97.9,
+      "missing": {
+        "간장": 5
+      },
+      "nutrients": {
+        "kcal": 182.3,
+        "carbs_g": 7.9,
+        "protein_g": 16.1,
+        "fat_g": 9.9,
+        "fiber_g": 2.7,
+        "sodium_mg": 489.3
+      },
+      "missing_nutrition": [],
+      "allergens": [
+        "난류",
+        "대두",
+        "밀"
+      ]
+    },
+    {
+      "id": "tofu_spinach",
+      "name": "두부 시금치 무침",
+      "minutes": 12,
+      "difficulty": "쉬움",
+      "ingredients": {
+        "두부": 160,
+        "시금치": 100,
+        "간장": 8,
+        "참기름": 5
+      },
+      "steps": [
+        "시금치를 데쳐 물기를 짠다.",
+        "두부는 충분히 익히거나 데쳐 물기를 뺀다.",
+        "간장과 참기름으로 버무린다."
+      ],
+      "score": 72.4,
+      "breakdown": {
+        "재료 활용": 27.5,
+        "영양 목표": 16.2,
+        "우선 소진": 10.0,
+        "조리 시간": 10.0,
+        "맛 조합": 8.8
+      },
+      "coverage": 91.6,
+      "missing": {
+        "두부": 10.0,
+        "간장": 8,
+        "참기름": 5
+      },
+      "nutrients": {
+        "kcal": 207.4,
+        "carbs_g": 7.2,
+        "protein_g": 16.3,
+        "fat_g": 13.4,
+        "fiber_g": 3.1,
+        "sodium_mg": 526.4
+      },
+      "missing_nutrition": [],
+      "allergens": [
+        "대두",
+        "밀"
+      ]
+    }
+  ],
+  "data_provenance": "educational approximate nutrition CSV; not official data"
+}
