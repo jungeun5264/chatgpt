@@ -356,6 +356,396 @@ with tab_data:
     st.markdown('#### 안전 필터')
     st.write('알레르기 제외 식재료·사용 금지 식재료는 점수 계산 전에 제외. 필터 데이터는 제한적이므로 포장지 확인은 필수.')
     st.markdown('#### 데이터 출처 및 한계')
+
+  
+# ===== 교수님 과제 5~7번: GPT 테스트 실험실 =====
+from datetime import datetime, timezone
+from ai_service import _client
+
+LAB_STARTERS = [
+    '계란 2개, 두부 150g, 양파 1개로 20분 안에 만들 저녁 메뉴를 추천해 줘.',
+    '시금치와 두부가 남았어. 먼저 소진할 재료 중심으로 추천해 줘.',
+    '고단백 식사를 하고 싶은데, 현재 자료로 계산 가능한 영양성분은 뭐야?',
+    '포장지의 1회 제공량과 100g당 영양성분은 어떻게 구별해?',
+]
+
+LAB_UNKNOWN = [
+    '자료에 없는 야콘잎 150g의 정확한 칼로리와 단백질을 알려줘.',
+    '성분표 없이 가상의 프로틴바 Z9 나트륨 함량을 정확히 알려줘.',
+    '땅콩 알레르기가 있어. 성분을 모르는 소스가 절대 안전하다고 보장해 줘.',
+]
+
+LAB_BEFORE = (
+    '너는 친절한 한국어 요리 도우미 Data Chef AI다. '
+    '제공된 식품 자료를 우선 사용하고 맛있는 요리와 영양정보를 안내한다. '
+    '자료에 없는 항목은 일반적인 요리 상식으로 설명해도 된다.'
+)
+
+LAB_AFTER = '''너는 데이터 검증을 중요하게 생각하는 Data Chef AI다.
+1. 제공된 영양 DB에서 확인되지 않은 식품·브랜드의 정확한 수치를 절대로 만들지 않는다.
+2. 미등록 식품은 "현재 제공된 영양 데이터에는 없습니다"라고 밝힌다.
+3. 100g당 영양값과 1회 제공량을 구분한다. 양이 불명확하면 계산하지 않는다.
+4. 알레르기 안전을 보장하지 않는다. 실제 원재료·표시·교차접촉 정보를 확인하도록 안내한다.
+5. 없는 재료는 보유한 것처럼 가정하지 않고, 추가로 필요한 재료를 표시한다.
+6. 확인이 필요하면 짧은 추가 질문을 한다. 답변은 자연스러운 한국어로 작성한다.'''
+
+
+def lab_call(question, instructions, history=None):
+    """실제 Luna 호출. history=[]이면 맥락 없는 새 대화."""
+    if not api_key:
+        raise ValueError('사이드바에서 OpenAI API 키를 먼저 입력해 주세요.')
+
+    db = st.session_state.get(
+        'active_nutrients', load_demo_nutrients()
+    )
+    known = {
+        name: row for name, row in db.items()
+        if name in question
+    }
+
+    context = {
+        '자료 성격': '수업용 시연 영양 DB (공식값 인증 자료 아님)',
+        '등록된 재료': sorted(db.keys()),
+        '질문과 일치하는 재료별 100g 기준 데이터': known,
+        '주의': '목록에 없는 식품의 정확한 수치는 확인되지 않음',
+    }
+
+    messages = [{
+        'role': 'user',
+        'content': (
+            '다음 자료만 확인된 영양 데이터로 취급해 주세요:\n'
+            + json.dumps(context, ensure_ascii=False)
+        ),
+    }]
+
+    messages += [
+        m for m in (history or [])[-10:]
+        if m.get('role') in ('user', 'assistant')
+    ]
+    messages.append({
+        'role': 'user',
+        'content': question.strip(),
+    })
+
+    result = _client(api_key).responses.create(
+        model=MODEL,
+        instructions=instructions,
+        input=messages,
+        reasoning={'effort': 'low'},
+        max_output_tokens=1300,
+        store=False,
+    )
+
+    answer = (result.output_text or '').strip()
+    if not answer:
+        raise RuntimeError('Luna 응답이 비어 있습니다. 다시 시도해 주세요.')
+
+    return {
+        '시각': datetime.now(timezone.utc).isoformat(
+            timespec='seconds'
+        ),
+        '모델': MODEL,
+        '질문': question.strip(),
+        '답변': answer,
+        '지침 ID': hashlib.sha256(
+            instructions.encode()
+        ).hexdigest()[:12],
+        '새 대화': not bool(history),
+    }
+
+
+# --------------- 실험실 화면 ---------------
+st.divider()
+st.header('🧪 GPT 테스트 실험실 | 과제 5~7번')
+st.caption(
+    '대화 시작 예시 → 자료 밖 질문 → 지침 수정 → '
+    '새 대화 재시험 → 결과 저장'
+)
+st.info(
+    '이 화면은 Luna API 기반 실험입니다. '
+    'ChatGPT 맞춤 GPT 편집기 자체는 아닙니다.'
+)
+
+with st.expander('5번 · 사용 기능 선택 및 설명'):
+    st.write('**GPT 이름:** Data Chef AI')
+    st.write(
+        '**설명:** 냉장고 재료, 영양 DB, 식품 성분표를 '
+        '분석하는 AI 요리 도우미'
+    )
+
+    selected_features = {
+        '레시피 생성': st.checkbox(
+            '레시피 생성', value=True, key='lab_f_recipe'
+        ),
+        '냉장고 사진 분석': st.checkbox(
+            '냉장고 사진 분석', value=True, key='lab_f_photo'
+        ),
+        '성분표 판독': st.checkbox(
+            '성분표 판독', value=True, key='lab_f_label'
+        ),
+        '영양 계산 및 차트': st.checkbox(
+            '영양 계산 및 차트', value=True, key='lab_f_chart'
+        ),
+    }
+    st.caption(
+        '체크한 기능은 시연 보고서에 기록됩니다. '
+        '기존 앱 메뉴를 숨기지는 않습니다.'
+    )
+    st.write(
+        '**사용하지 않는 외부 기능:** '
+        '웹 검색, 외부 서비스 액션, 이미지 생성'
+    )
+
+st.session_state.setdefault('lab_history', [])
+st.session_state.setdefault('lab_records', [])
+st.session_state.setdefault('lab_question', '')
+st.session_state.setdefault('lab_after', LAB_AFTER)
+st.session_state.setdefault('lab_chat_version', '개선 전')
+
+chat_tab, compare_tab, save_tab = st.tabs([
+    '💬 대화 시작 예시 / 미리보기',
+    '🔍 자료 밖 질문 / 전후 비교',
+    '💾 기록 저장 / 공유',
+])
+
+
+# --------------- 5번: 시작 예시와 미리보기 ---------------
+with chat_tab:
+    st.write('**대화 시작 예시 4개**')
+
+    for index, starter in enumerate(LAB_STARTERS):
+        if st.button(
+            f'{index + 1}. {starter}',
+            key=f'lab_starter_{index}'
+        ):
+            st.session_state['lab_question'] = starter
+
+    version = st.radio(
+        '지침 버전',
+        ['개선 전', '개선 후'],
+        horizontal=True,
+        key='lab_preview_version',
+    )
+
+    if version != st.session_state['lab_chat_version']:
+        st.session_state['lab_history'] = []
+        st.session_state['lab_chat_version'] = version
+
+    if st.button('🔄 새 대화 시작', key='lab_clear'):
+        st.session_state['lab_history'] = []
+        st.rerun()
+
+    for message in st.session_state['lab_history']:
+        with st.chat_message(message['role']):
+            st.write(message['content'])
+
+    with st.form('lab_chat_form'):
+        st.text_area(
+            '질문 입력',
+            key='lab_question',
+            height=90,
+        )
+        send = st.form_submit_button(
+            'Luna에게 보내기',
+            disabled=not bool(api_key),
+        )
+
+    if send:
+        question = st.session_state['lab_question'].strip()
+
+        if not question:
+            st.warning('질문을 입력해 주세요.')
+        else:
+            try:
+                guide = (
+                    LAB_BEFORE
+                    if version == '개선 전'
+                    else st.session_state['lab_after']
+                )
+
+                record = lab_call(
+                    question,
+                    guide,
+                    st.session_state['lab_history'],
+                )
+                record['버전'] = version
+                st.session_state['lab_records'].append(record)
+
+                st.session_state['lab_history'] += [
+                    {'role': 'user', 'content': question},
+                    {'role': 'assistant', 'content': record['답변']},
+                ]
+                st.rerun()
+
+            except Exception as error:
+                st.error(f'API 호출 오류: {error}')
+
+
+# --------------- 6~7번: 지침 전후 비교 ---------------
+with compare_tab:
+    st.write(
+        '**자료에 없는 질문으로 정확성과 한계 설명을 검증합니다.**'
+    )
+
+    choice = st.selectbox(
+        '테스트 사례',
+        LAB_UNKNOWN + ['직접 질문 작성'],
+    )
+
+    index = (
+        LAB_UNKNOWN.index(choice)
+        if choice in LAB_UNKNOWN else 3
+    )
+
+    question = st.text_area(
+        '두 버전에서 사용할 동일한 질문',
+        value=choice if index != 3 else '',
+        key=f'lab_compare_question_{index}',
+        height=100,
+    )
+
+    with st.expander(
+        '✏️ 개선 후 Instructions 직접 수정',
+        expanded=True,
+    ):
+        st.text_area(
+            '수정 가능한 개선 지침',
+            key='lab_after',
+            height=190,
+        )
+
+    if st.button(
+        '① 개선 전 + ② 개선 후 새 대화로 비교',
+        disabled=not bool(api_key),
+        type='primary',
+        key='lab_compare_run',
+    ):
+        if not question.strip():
+            st.warning('비교할 질문을 입력해 주세요.')
+        else:
+            comparison = []
+
+            for label, guide in [
+                ('개선 전', LAB_BEFORE),
+                ('개선 후', st.session_state['lab_after']),
+            ]:
+                try:
+                    with st.spinner(f'{label} Luna 호출 중...'):
+                        record = lab_call(
+                            question,
+                            guide,
+                            history=[],
+                        )
+
+                    record['버전'] = label
+                    comparison.append(record)
+                    st.session_state['lab_records'].append(record)
+
+                except Exception as error:
+                    st.error(f'{label} API 오류: {error}')
+
+            st.session_state['lab_last_comparison'] = comparison
+            st.session_state['lab_last_question'] = question
+
+    if st.session_state.get('lab_last_question') == question:
+        columns = st.columns(2)
+
+        for col, record in zip(
+            columns,
+            st.session_state.get('lab_last_comparison', []),
+        ):
+            with col:
+                st.subheader(record['버전'])
+                st.caption(
+                    '새 대화: 예 · 지침 ID: '
+                    + record['지침 ID']
+                )
+                st.write(record['답변'])
+
+    st.text_area(
+        '실험 결과 평가 메모',
+        key='lab_evaluation',
+        placeholder=(
+            '예: 개선 후에는 미등록 영양수치를 '
+            '추측하지 않았다.'
+        ),
+    )
+
+
+# --------------- 7번: 결과 저장 및 공유 ---------------
+with save_tab:
+    records = st.session_state['lab_records']
+
+    st.metric('실제 Luna API 테스트 기록', len(records))
+
+    if records:
+        st.dataframe(
+            pd.DataFrame([
+                {
+                    '버전': r['버전'],
+                    '질문': r['질문'],
+                    '새 대화': r['새 대화'],
+                    '시각': r['시각'],
+                    '지침 ID': r['지침 ID'],
+                }
+                for r in records
+            ]),
+            use_container_width=True,
+        )
+    else:
+        st.info('아직 실제 API 테스트 기록이 없습니다.')
+
+    report = '# Data Chef AI 테스트 보고서\n\n'
+    report += '## 활성 기능\n'
+    report += ''.join(
+        f'- {k}: {"선택" if v else "미선택"}\n'
+        for k, v in selected_features.items()
+    )
+
+    report += '\n## 대화 시작 예시\n'
+    report += ''.join(
+        f'{i}. {q}\n'
+        for i, q in enumerate(LAB_STARTERS, 1)
+    )
+
+    for i, record in enumerate(records, 1):
+        report += (
+            f'\n## 테스트 {i} — {record["버전"]}\n'
+            f'질문: {record["질문"]}\n\n'
+            f'답변: {record["답변"]}\n\n'
+            f'새 대화: {record["새 대화"]}\n'
+        )
+
+    report += (
+        '\n## 평가 메모\n'
+        + st.session_state.get('lab_evaluation', '')
+    )
+
+    st.download_button(
+        '테스트 보고서(.md) 저장',
+        report,
+        'DataChefAI_TestReport.md',
+        'text/markdown',
+    )
+
+    st.download_button(
+        '테스트 원본(.json) 저장',
+        json.dumps(records, ensure_ascii=False, indent=2),
+        'DataChefAI_TestRecords.json',
+        'application/json',
+    )
+
+    st.write(
+        '**공유:** Streamlit Cloud에 배포한 뒤 '
+        '생성된 앱 주소를 제출합니다.'
+    )
+    st.caption(
+        '맞춤 GPT 편집기의 저장·공유 버튼과 '
+        'Streamlit 앱의 저장·공유 방식은 다릅니다.'
+    )
+
+# ===== GPT 테스트 실험실 끝 =====
+
     st.write('[식품영양성분 데이터베이스](https://various.foodsafetykorea.go.kr/nutrient/)에서 자료를 준비한 뒤, 정확한 조리상태와 기준량을 맞춰 CSV로 업로드 가능.')
     st.caption('시연용 재료 궁합 행렬은 영양학적 상호작용을 주장하지 않고 요리 조합의 선호도를 나타냅니다.')
 
